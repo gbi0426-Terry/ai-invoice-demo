@@ -339,85 +339,119 @@ input[type="checkbox"]{width:15px;height:15px;cursor:pointer;accent-color:var(--
 
     <!-- ===== DASHBOARD ===== -->
     <div class="page active" id="page-dashboard">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between">
-            <div>
-              <div class="stat-label">本月總費用</div>
-              <div class="stat-value" id="dash-total">$0</div>
-              <div class="stat-sub" id="dash-count">共 0 張發票</div>
-            </div>
-            <div class="stat-icon" style="background:var(--blue-light);color:var(--blue)">💰</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between">
-            <div>
-              <div class="stat-label">已報帳</div>
-              <div class="stat-value" id="dash-reported">$0</div>
-              <div class="stat-sub" id="dash-reported-count">0 張</div>
-            </div>
-            <div class="stat-icon" style="background:var(--green-light);color:var(--green)">✅</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between">
-            <div>
-              <div class="stat-label">未報帳</div>
-              <div class="stat-value" id="dash-unreported">$0</div>
-              <div class="stat-sub" id="dash-unreported-count">0 張</div>
-            </div>
-            <div class="stat-icon" style="background:var(--yellow-light);color:var(--yellow)">⏳</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between">
-            <div>
-              <div class="stat-label">待人工確認</div>
-              <div class="stat-value" id="dash-pending">0</div>
-              <div class="stat-sub">信心度 &lt; 80%</div>
-            </div>
-            <div class="stat-icon" style="background:var(--red-light);color:var(--red)">⚠️</div>
-          </div>
-        </div>
+
+      <!-- 空白狀態 -->
+      <div id="dashEmpty" style="display:none;text-align:center;padding:60px 20px">
+        <div style="font-size:64px;margin-bottom:16px">📂</div>
+        <div style="font-size:20px;font-weight:700;color:var(--gray-700);margin-bottom:8px">尚無發票資料</div>
+        <div style="font-size:14px;color:var(--gray-400);margin-bottom:24px">上傳第一張發票後，這裡會自動顯示費用統計與圖表</div>
+        <button class="btn btn-primary" onclick="navigate('upload')" style="font-size:15px;padding:10px 24px">📤 立即上傳發票</button>
       </div>
 
-      <!-- Sub stats -->
-      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
-        <div class="stat-card">
-          <div class="stat-label">⛽ 加油費</div>
-          <div class="stat-value" style="font-size:18px" id="dash-fuel">$0</div>
+      <!-- 有資料時顯示 -->
+      <div id="dashContent">
+        <!-- 月份選擇器 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="font-size:13px;color:var(--gray-500)">統計範圍</div>
+          <div style="display:flex;gap:6px">
+            <button id="dashRange-all" class="btn btn-secondary btn-sm" onclick="setDashRange('all')">全部</button>
+            <button id="dashRange-month" class="btn btn-primary btn-sm" onclick="setDashRange('month')">本月</button>
+            <button id="dashRange-3m" class="btn btn-secondary btn-sm" onclick="setDashRange('3m')">近3月</button>
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">🅿️ 停車費</div>
-          <div class="stat-value" style="font-size:18px" id="dash-parking">$0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">🍱 伙食費</div>
-          <div class="stat-value" style="font-size:18px" id="dash-food">$0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">📦 其他費用</div>
-          <div class="stat-value" style="font-size:18px" id="dash-other">$0</div>
-        </div>
-      </div>
 
-      <div class="charts-grid">
-        <div class="chart-card">
-          <div class="chart-title">費用類別分布</div>
-          <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+        <!-- 主要統計卡 -->
+        <div class="stats-grid" style="margin-bottom:16px">
+          <div class="stat-card" style="border-left:4px solid var(--blue)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <div>
+                <div class="stat-label">總費用</div>
+                <div class="stat-value" id="dash-total">$0</div>
+                <div class="stat-sub" id="dash-count">共 0 張發票</div>
+              </div>
+              <div class="stat-icon" style="background:var(--blue-light);color:var(--blue)">💰</div>
+            </div>
+          </div>
+          <div class="stat-card" style="border-left:4px solid var(--green)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <div>
+                <div class="stat-label">已報帳</div>
+                <div class="stat-value" id="dash-reported">$0</div>
+                <div class="stat-sub" id="dash-reported-count">0 張</div>
+              </div>
+              <div class="stat-icon" style="background:var(--green-light);color:var(--green)">✅</div>
+            </div>
+          </div>
+          <div class="stat-card" style="border-left:4px solid var(--yellow)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <div>
+                <div class="stat-label">未報帳</div>
+                <div class="stat-value" id="dash-unreported">$0</div>
+                <div class="stat-sub" id="dash-unreported-count">0 張</div>
+              </div>
+              <div class="stat-icon" style="background:var(--yellow-light);color:var(--yellow)">⏳</div>
+            </div>
+          </div>
+          <div class="stat-card" style="border-left:4px solid var(--red)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <div>
+                <div class="stat-label">待人工確認</div>
+                <div class="stat-value" id="dash-pending">0</div>
+                <div class="stat-sub">信心度 &lt; 80%</div>
+              </div>
+              <div class="stat-icon" style="background:var(--red-light);color:var(--red)">⚠️</div>
+            </div>
+          </div>
         </div>
-        <div class="chart-card">
-          <div class="chart-title">每月費用趨勢</div>
-          <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+
+        <!-- 類別小卡 -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div class="stat-card" style="padding:12px 14px">
+            <div style="font-size:11px;font-weight:600;color:var(--orange);text-transform:uppercase;margin-bottom:4px">⛽ 加油費</div>
+            <div style="font-size:20px;font-weight:700;color:var(--gray-800)" id="dash-fuel">$0</div>
+            <div style="font-size:11px;color:var(--gray-400);margin-top:2px" id="dash-fuel-pct">—</div>
+          </div>
+          <div class="stat-card" style="padding:12px 14px">
+            <div style="font-size:11px;font-weight:600;color:var(--blue);text-transform:uppercase;margin-bottom:4px">🅿️ 停車費</div>
+            <div style="font-size:20px;font-weight:700;color:var(--gray-800)" id="dash-parking">$0</div>
+            <div style="font-size:11px;color:var(--gray-400);margin-top:2px" id="dash-parking-pct">—</div>
+          </div>
+          <div class="stat-card" style="padding:12px 14px">
+            <div style="font-size:11px;font-weight:600;color:var(--green);text-transform:uppercase;margin-bottom:4px">🍱 伙食費</div>
+            <div style="font-size:20px;font-weight:700;color:var(--gray-800)" id="dash-food">$0</div>
+            <div style="font-size:11px;color:var(--gray-400);margin-top:2px" id="dash-food-pct">—</div>
+          </div>
+          <div class="stat-card" style="padding:12px 14px">
+            <div style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:4px">📦 其他</div>
+            <div style="font-size:20px;font-weight:700;color:var(--gray-800)" id="dash-other">$0</div>
+            <div style="font-size:11px;color:var(--gray-400);margin-top:2px" id="dash-other-pct">—</div>
+          </div>
         </div>
-        <div class="chart-card">
-          <div class="chart-title">店家費用排行</div>
-          <div id="rankList" style="padding-top:4px"></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">最近上傳發票</div>
-          <div class="recent-list" id="recentList"></div>
+
+        <!-- 圖表區 -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">費用類別分布</div>
+            <div id="pieEmpty" style="display:none;text-align:center;padding:40px 0;color:var(--gray-400);font-size:13px">尚無資料</div>
+            <div class="chart-wrap" id="pieWrap"><canvas id="pieChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">每月費用趨勢</div>
+            <div id="trendEmpty" style="display:none;text-align:center;padding:40px 0;color:var(--gray-400);font-size:13px">尚無資料</div>
+            <div class="chart-wrap" id="trendWrap"><canvas id="trendChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">店家費用排行 Top 5</div>
+            <div id="rankList" style="padding-top:4px">
+              <div style="text-align:center;padding:40px 0;color:var(--gray-400);font-size:13px">尚無資料</div>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">最近上傳發票</div>
+            <div class="recent-list" id="recentList">
+              <div style="text-align:center;padding:40px 0;color:var(--gray-400);font-size:13px">尚無資料</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -849,8 +883,39 @@ function closeSidebar(){
 }
 
 // ==================== DASHBOARD ====================
+let dashRange = 'month';
+function setDashRange(r){
+  dashRange = r;
+  ['all','month','3m'].forEach(k=>{
+    const btn = document.getElementById('dashRange-'+k);
+    if(btn){ btn.className = 'btn btn-sm ' + (k===r ? 'btn-primary' : 'btn-secondary'); }
+  });
+  renderDashboard();
+}
+
+function getDashData(){
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  if(dashRange==='month'){
+    const prefix = `${y}-${String(m+1).padStart(2,'0')}`;
+    return invoices.filter(x=>x.date.startsWith(prefix));
+  }
+  if(dashRange==='3m'){
+    const cutoff = new Date(y, m-2, 1).toISOString().slice(0,7);
+    return invoices.filter(x=>x.date.slice(0,7) >= cutoff);
+  }
+  return invoices;
+}
+
 function renderDashboard(){
-  const all = invoices;
+  const all = getDashData();
+  const hasData = invoices.length > 0;
+
+  // 空白狀態
+  document.getElementById('dashEmpty').style.display = hasData ? 'none' : '';
+  document.getElementById('dashContent').style.display = hasData ? '' : 'none';
+  if(!hasData) return;
+
   const total = sum(all,'total');
   const reported = all.filter(x=>x.reported);
   const unreported = all.filter(x=>!x.reported);
@@ -859,63 +924,105 @@ function renderDashboard(){
   const parking = sum(all.filter(x=>x.category==='停車'),'total');
   const food = sum(all.filter(x=>x.category==='伙食'),'total');
   const other = sum(all.filter(x=>x.category==='其他'),'total');
+  const pct = v => total > 0 ? (v/total*100).toFixed(1)+'%' : '—';
 
-  setText('dash-total',fmt(total));
-  setText('dash-count',`共 ${all.length} 張發票`);
-  setText('dash-reported',fmt(sum(reported,'total')));
-  setText('dash-reported-count',`${reported.length} 張`);
-  setText('dash-unreported',fmt(sum(unreported,'total')));
-  setText('dash-unreported-count',`${unreported.length} 張`);
-  setText('dash-pending',pending.length);
-  setText('dash-fuel',fmt(fuel));
-  setText('dash-parking',fmt(parking));
-  setText('dash-food',fmt(food));
-  setText('dash-other',fmt(other));
+  setText('dash-total', fmt(total));
+  setText('dash-count', `共 ${all.length} 張發票`);
+  setText('dash-reported', fmt(sum(reported,'total')));
+  setText('dash-reported-count', `${reported.length} 張`);
+  setText('dash-unreported', fmt(sum(unreported,'total')));
+  setText('dash-unreported-count', `${unreported.length} 張`);
+  setText('dash-pending', pending.length);
+  setText('dash-fuel', fmt(fuel));   setText('dash-fuel-pct', pct(fuel));
+  setText('dash-parking', fmt(parking)); setText('dash-parking-pct', pct(parking));
+  setText('dash-food', fmt(food));   setText('dash-food-pct', pct(food));
+  setText('dash-other', fmt(other)); setText('dash-other-pct', pct(other));
 
   // Pie chart
-  if(pieChartInst) pieChartInst.destroy();
-  pieChartInst = new Chart(document.getElementById('pieChart'),{
-    type:'doughnut',
-    data:{labels:['加油','停車','伙食','其他'],datasets:[{data:[fuel,parking,food,other],backgroundColor:['#f97316','#2563eb','#16a34a','#9ca3af'],borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:12},padding:10}}}}
-  });
+  const hasAmt = fuel+parking+food+other > 0;
+  document.getElementById('pieEmpty').style.display = hasAmt ? 'none' : '';
+  document.getElementById('pieWrap').style.display = hasAmt ? '' : 'none';
+  if(pieChartInst){ pieChartInst.destroy(); pieChartInst=null; }
+  if(hasAmt){
+    pieChartInst = new Chart(document.getElementById('pieChart'),{
+      type:'doughnut',
+      data:{
+        labels:['加油','停車','伙食','其他'],
+        datasets:[{data:[fuel,parking,food,other],backgroundColor:['#f97316','#2563eb','#16a34a','#9ca3af'],borderWidth:2,borderColor:'#fff'}]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{position:'right',labels:{font:{size:12},padding:12}},
+          tooltip:{callbacks:{label:ctx=>{
+            const val=ctx.raw; const t=ctx.dataset.data.reduce((a,b)=>a+b,0);
+            return ` ${ctx.label}：${fmt(val)}（${(val/t*100).toFixed(1)}%）`;
+          }}}
+        }
+      }
+    });
+  }
 
-  // Trend chart
-  if(trendChartInst) trendChartInst.destroy();
+  // Trend chart — 近6個月，使用實際資料月份
+  if(trendChartInst){ trendChartInst.destroy(); trendChartInst=null; }
   const months = getLast6Months();
-  const trendData = months.map(m=>sum(all.filter(x=>x.date.startsWith(m)),'total'));
-  trendChartInst = new Chart(document.getElementById('trendChart'),{
-    type:'bar',
-    data:{labels:months.map(m=>m.slice(5)+'月'),datasets:[{label:'費用',data:trendData,backgroundColor:'#93c5fd',borderColor:'#2563eb',borderWidth:1,borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+v.toLocaleString()},grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}}
-  });
+  const hasTrend = invoices.some(x=>months.some(m=>x.date.startsWith(m)));
+  document.getElementById('trendEmpty').style.display = hasTrend ? 'none' : '';
+  document.getElementById('trendWrap').style.display = hasTrend ? '' : 'none';
+  if(hasTrend){
+    const trendData = months.map(m=>sum(invoices.filter(x=>x.date.startsWith(m)),'total'));
+    trendChartInst = new Chart(document.getElementById('trendChart'),{
+      type:'bar',
+      data:{
+        labels:months.map(m=>{ const [y,mo]=m.split('-'); return `${y.slice(2)}/${mo}`; }),
+        datasets:[{
+          label:'費用',data:trendData,
+          backgroundColor:'rgba(37,99,235,0.15)',
+          borderColor:'#2563eb',borderWidth:2,borderRadius:6,
+          hoverBackgroundColor:'rgba(37,99,235,0.3)'
+        }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          y:{ticks:{callback:v=>'$'+v.toLocaleString()},grid:{color:'#f3f4f6'},beginAtZero:true},
+          x:{grid:{display:false}}
+        }
+      }
+    });
+  }
 
   // Rank
   const storeMap={};
-  all.forEach(x=>{storeMap[x.store]=(storeMap[x.store]||0)+x.total});
-  const sorted=Object.entries(storeMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const maxAmt=sorted[0]?sorted[0][1]:1;
-  document.getElementById('rankList').innerHTML=sorted.map(([s,a],i)=>`
-    <div class="rank-item">
-      <div class="rank-num ${i<3?'top':''}">${i+1}</div>
-      <div class="rank-bar-wrap">
-        <div class="rank-store">${s}</div>
-        <div class="rank-bar"><div class="rank-bar-fill" style="width:${(a/maxAmt*100).toFixed(1)}%"></div></div>
-      </div>
-      <div class="rank-amount">${fmt(a)}</div>
-    </div>`).join('');
+  all.forEach(x=>{ storeMap[x.store]=(storeMap[x.store]||0)+x.total; });
+  const sorted = Object.entries(storeMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxAmt = sorted[0]?sorted[0][1]:1;
+  document.getElementById('rankList').innerHTML = sorted.length
+    ? sorted.map(([s,a],i)=>`
+      <div class="rank-item">
+        <div class="rank-num ${i<3?'top':''}">${i+1}</div>
+        <div class="rank-bar-wrap">
+          <div class="rank-store">${s}</div>
+          <div class="rank-bar"><div class="rank-bar-fill" style="width:${(a/maxAmt*100).toFixed(1)}%"></div></div>
+        </div>
+        <div class="rank-amount">${fmt(a)}</div>
+      </div>`).join('')
+    : '<div style="text-align:center;padding:40px 0;color:var(--gray-400);font-size:13px">本期間尚無資料</div>';
 
-  // Recent
-  const recent = [...all].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
-  document.getElementById('recentList').innerHTML=recent.map(x=>`
-    <div class="recent-item">
-      <div class="recent-item-icon">${CAT_ICONS[x.category]||'📄'}</div>
-      <div class="recent-item-info">
-        <div class="recent-item-store">${x.store}</div>
-        <div class="recent-item-meta">${x.date} · ${x.category}</div>
-      </div>
-      <div class="recent-item-amount">${fmt(x.total)}</div>
-    </div>`).join('');
+  // Recent (永遠抓全部最新5筆，不受範圍篩選)
+  const recent = [...invoices].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+  document.getElementById('recentList').innerHTML = recent.length
+    ? recent.map(x=>`
+      <div class="recent-item" onclick="openView('${x.id}')" style="cursor:pointer">
+        <div class="recent-item-icon">${CAT_ICONS[x.category]||'📄'}</div>
+        <div class="recent-item-info">
+          <div class="recent-item-store">${x.store}</div>
+          <div class="recent-item-meta">${x.date} · <span class="badge ${CAT_COLORS[x.category]||'badge-gray'}" style="font-size:10px">${x.category}</span></div>
+        </div>
+        <div class="recent-item-amount" style="color:${x.reported?'var(--green)':'var(--gray-700)'}">${fmt(x.total)}</div>
+      </div>`).join('')
+    : '<div style="text-align:center;padding:40px 0;color:var(--gray-400);font-size:13px">本期間尚無資料</div>';
 }
 
 // ==================== LIST ====================
