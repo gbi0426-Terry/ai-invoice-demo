@@ -798,22 +798,7 @@ const CATEGORIES = ['加油','停車','伙食','其他'];
 const CAT_ICONS = {加油:'⛽',停車:'🅿️',伙食:'🍱',其他:'📦'};
 const CAT_COLORS = {加油:'badge-orange',停車:'badge-blue',伙食:'badge-green',其他:'badge-gray'};
 
-const MOCK_DATA = [
-  {id:'INV001',date:'2026-06-02',store:'台灣中油股份有限公司',taxId:'03557017',invoiceNo:'MK-45612301',items:'95無鉛汽油 30L',pretax:1238,tax:62,total:1300,payment:'信用卡',note:'',category:'加油',confidence:96,reported:true},
-  {id:'INV002',date:'2026-06-05',store:'台塑石油股份有限公司',taxId:'16902474',invoiceNo:'ZA-98123456',items:'98無鉛汽油 25L',pretax:1190,tax:60,total:1250,payment:'現金',note:'',category:'加油',confidence:94,reported:false},
-  {id:'INV003',date:'2026-06-08',store:'嘟嘟房停車場',taxId:'28356712',invoiceNo:'AB-22345678',items:'停車費 4小時',pretax:152,tax:8,total:160,payment:'悠遊卡',note:'客戶拜訪',category:'停車',confidence:88,reported:true},
-  {id:'INV004',date:'2026-06-10',store:'城市車旅停車場',taxId:'54892103',invoiceNo:'CD-87654321',items:'月租停車費',pretax:2857,tax:143,total:3000,payment:'轉帳',note:'6月月租',category:'停車',confidence:72,reported:false},
-  {id:'INV005',date:'2026-06-12',store:'八方雲集',taxId:'23156789',invoiceNo:'EF-11223344',items:'水餃×2 湯麵×1',pretax:133,tax:7,total:140,payment:'現金',note:'午餐',category:'伙食',confidence:91,reported:true},
-  {id:'INV006',date:'2026-06-14',store:'星巴克咖啡',taxId:'97542810',invoiceNo:'GH-55667788',items:'大杯拿鐵×2 鬆餅×1',pretax:409,tax:21,total:430,payment:'信用卡',note:'客戶會議',category:'伙食',confidence:98,reported:true},
-  {id:'INV007',date:'2026-06-15',store:'7-ELEVEN',taxId:'23112017',invoiceNo:'IJ-33445566',items:'御飯糰×3 飲料×2',pretax:205,tax:11,total:216,payment:'icash',note:'',category:'伙食',confidence:85,reported:false},
-  {id:'INV008',date:'2026-06-17',store:'全聯福利中心',taxId:'51246237',invoiceNo:'KL-77889900',items:'辦公室零食 飲用水',pretax:571,tax:29,total:600,payment:'全聯點數卡',note:'部門零食採購',category:'其他',confidence:76,reported:false},
-  {id:'INV009',date:'2026-06-19',store:'台灣中油股份有限公司',taxId:'03557017',invoiceNo:'MN-12348765',items:'92無鉛汽油 35L',pretax:1429,tax:71,total:1500,payment:'中油卡',note:'',category:'加油',confidence:97,reported:true},
-  {id:'INV010',date:'2026-06-21',store:'嘟嘟房停車場',taxId:'28356712',invoiceNo:'OP-44556677',items:'停車費 2小時',pretax:76,tax:4,total:80,payment:'悠遊卡',note:'',category:'停車',confidence:90,reported:false},
-  {id:'INV011',date:'2026-06-22',store:'星巴克咖啡',taxId:'97542810',invoiceNo:'QR-88990011',items:'星冰樂×2 三明治×1',pretax:476,tax:24,total:500,payment:'信用卡',note:'季度會議茶點',category:'伙食',confidence:99,reported:true},
-  {id:'INV012',date:'2026-06-24',store:'全聯福利中心',taxId:'51246237',invoiceNo:'ST-22334455',items:'文具用品 A4紙×3包',pretax:286,tax:14,total:300,payment:'現金',note:'辦公室用品',category:'其他',confidence:68,reported:false},
-  {id:'INV013',date:'2026-06-25',store:'八方雲集',taxId:'23156789',invoiceNo:'UV-66778899',items:'鍋貼×20 豆漿×2',pretax:190,tax:10,total:200,payment:'現金',note:'加班晚餐',category:'伙食',confidence:93,reported:false},
-  {id:'INV014',date:'2026-06-26',store:'台塑石油股份有限公司',taxId:'16902474',invoiceNo:'WX-11223366',items:'柴油 40L',pretax:1333,tax:67,total:1400,payment:'現金',note:'公務車',category:'加油',confidence:82,reported:false},
-];
+const MOCK_DATA = [];
 
 let invoices = [];
 let filteredInvoices = [];
