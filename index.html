@@ -1250,17 +1250,25 @@ async function callClaudeStructure(ocrText){
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body: JSON.stringify({
       model: getModel(),
-      max_tokens: 2048,
+      max_tokens: 4096,
       messages:[{role:'user',content:
-`以下是從發票/收據 OCR 辨識出的文字，請從中提取所有發票資訊。若有多張，請全部提取。
+`以下是從一張照片中多張發票/收據 OCR 掃描出的文字。請仔細閱讀，找出照片中【每一張獨立的單據】並分別提取。
+
+重要規則：
+1. 即使兩張單據格式相同（例如兩張「計程車運價證明」），只要日期、金額、車號任一不同，就必須視為獨立的兩筆，不可合併
+2. 計程車/交通收據屬於「其他」類別（非停車）
+3. 中文數字金額請轉為阿拉伯數字（例：二仟二百元=2200、一仟二百元=1200）
+4. 日期若只有年月日數字，補齊為 YYYY-MM-DD（例：2026年6月9日=2026-06-09）
+5. 找不到統一編號或發票號碼時填空字串
+6. 請先在腦中數清楚有幾張單據，再逐一提取，不可漏掉任何一張
 
 OCR 文字：
 ${ocrText}
 
-以 JSON 陣列格式回傳，每張發票一個物件：
-date(YYYY-MM-DD), store(店家名稱), taxId(統一編號8位，無則空字串), invoiceNo(發票號碼如AB-12345678), items(品項描述), pretax(未稅金額數字), tax(稅額數字), total(含稅總額數字), payment(現金/信用卡/悠遊卡/LINE Pay/其他), category(加油/停車/伙食/其他), confidence(0-100整數)
+以 JSON 陣列格式回傳，每張單據一個物件（有幾張就幾個物件，絕對不要合併）：
+date(YYYY-MM-DD), store(店家或車行名稱), taxId(統一編號8位，無則空字串), invoiceNo(發票或單據編號，無則空字串), items(品項或用途描述), pretax(未稅金額數字，無法區分則同total), tax(稅額數字，無則0), total(含稅總額數字), payment(現金/信用卡/悠遊卡/LINE Pay/其他), category(加油/停車/伙食/其他), confidence(0-100整數)
 
-只回傳 JSON 陣列，不要任何說明文字。`
+只回傳 JSON 陣列，不要說明文字。`
       }]
     })
   });
@@ -1347,25 +1355,19 @@ async function callClaudeOCR(imageBase64, mimeType){
         role:'user',
         content:[
           {type:'image', source:{type:'base64', media_type: mimeType, data: imageBase64}},
-          {type:'text', text:`請仔細辨識這張發票/收據圖片中的所有資料。如果圖中有多張發票，請全部提取。
-以 JSON 陣列格式回傳，每張發票一個物件，包含以下欄位：
-- date: 發票日期 (YYYY-MM-DD 格式，若無法辨識則用今天日期)
-- store: 店家名稱
-- taxId: 統一編號 (8位數字，若無則空字串)
-- invoiceNo: 發票號碼 (格式如 AB-12345678，若無則空字串)
-- items: 品項內容 (文字描述)
-- pretax: 未稅金額 (數字，若只有含稅總額則估算)
-- tax: 稅額 (數字)
-- total: 含稅總額 (數字)
-- payment: 付款方式 (現金/信用卡/悠遊卡/LINE Pay/其他)
-- category: 費用類別，只能是「加油」「停車」「伙食」「其他」其中一個
-- confidence: 辨識信心度 0-100 (整數)
+          {type:'text', text:`請仔細觀察這張照片中的【每一張獨立單據】，逐一提取所有發票/收據資料。
 
-注意：
-1. 只回傳 JSON 陣列，不要加任何說明文字
-2. 所有金額欄位必須是數字，不含貨幣符號
-3. 日期格式必須是 YYYY-MM-DD
-4. 若真的無法辨識發票，回傳空陣列 []`}
+重要規則：
+1. 先數清楚照片中有幾張實體單據，有幾張就回傳幾個物件，不可合併或遺漏
+2. 即使兩張單據格式相同（如兩張計程車運價證明），只要日期/金額/車號任一不同就是獨立兩筆
+3. 計程車/交通費收據 → category 填「其他」
+4. 中文數字金額轉阿拉伯數字（二仟二百=2200、一仟二百=1200）
+5. 日期補齊 YYYY-MM-DD 格式（2026年6月9日=2026-06-09）
+6. 找不到統一編號/發票號碼時填空字串
+7. 只回傳 JSON 陣列，不要說明文字，無法辨識回傳 []
+
+每張單據一個物件：
+date(YYYY-MM-DD), store(店家名稱), taxId(統一編號8位，無則空字串), invoiceNo(單據編號，無則空字串), items(品項/用途), pretax(未稅金額，無法區分則同total), tax(稅額，無則0), total(含稅總額), payment(現金/信用卡/悠遊卡/LINE Pay/其他), category(加油/停車/伙食/其他), confidence(0-100)`}
         ]
       }]
     })
