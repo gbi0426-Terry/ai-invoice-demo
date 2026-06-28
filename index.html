@@ -1098,10 +1098,16 @@ function handleDrop(e){ e.preventDefault(); document.getElementById('uploadZone'
 function processFiles(files){
   const valid = files.filter(f=>['image/jpeg','image/png','application/pdf','image/heic','image/heif'].includes(f.type)||/\.(heic|heif|jpg|jpeg|png|pdf)$/i.test(f.name));
   if(!valid.length){ toast('請上傳 JPG、PNG、PDF 或 HEIC 格式','warning'); return; }
-  if(isMultiMode()){
-    valid.forEach(f=>simulateMultiOCR(f.name));
+
+  if(valid.length > 1){
+    // 多個獨立檔案 → 批次模式（自動，不管 toggle）
+    simulateBatchOCR(valid.map(f=>f.name));
+  } else if(isMultiMode()){
+    // 單一檔案 + toggle 開 → 同框辨識
+    simulateMultiOCR(valid[0].name);
   } else {
-    valid.forEach(f=>simulateOCR(f.name, null));
+    // 單一檔案 + toggle 關 → 單張 Modal
+    simulateOCR(valid[0].name, null);
   }
 }
 
@@ -1109,9 +1115,86 @@ function simulateUpload(){
   if(isMultiMode()){
     simulateMultiOCR('多張停車發票_20260626.heic');
   } else {
-    const demos = ['統一發票_中油_20260626.jpg','停車費用_嘟嘟房_20260625.pdf','星巴克_收據_20260624.png'];
-    demos.forEach((name,i)=>setTimeout(()=>simulateOCR(name,null),i*800));
+    // 示範：多個獨立檔案 → 批次模式
+    simulateBatchOCR(['IMG_4236.jpeg','IMG_4237.jpeg','IMG_4238.jpeg']);
   }
+}
+
+// ── 批次多檔模式（多個獨立檔案） ──
+const BATCH_FAKE_POOL = [
+  {store:'星巴克咖啡（竹北自強店）',taxId:'06116700',items:'拿鐵×2 馬芬×1',pretax:362,tax:18,total:380,payment:'信用卡',category:'伙食',confidence:96,date:'2026-06-25',invoiceNo:'AM-86087347'},
+  {store:'星巴克咖啡',taxId:'93101391',items:'星冰樂×2 三明治×1',pretax:412,tax:21,total:433,payment:'信用卡',category:'伙食',confidence:94,date:'2026-06-03',invoiceNo:'AM-83741444'},
+  {store:'星巴克咖啡（竹北自強店）',taxId:'06116700',items:'美式咖啡×2',pretax:158,tax:8,total:166,payment:'LINE Pay',category:'伙食',confidence:91,date:'2026-06-03',invoiceNo:'AM-85488381'},
+  {store:'台灣中油股份有限公司',taxId:'03557017',items:'92無鉛汽油 30L',pretax:1238,tax:62,total:1300,payment:'信用卡',category:'加油',confidence:95,date:'2026-06-28',invoiceNo:'IE-88829027'},
+  {store:'嘟嘟房停車場',taxId:'28356712',items:'停車費 3小時',pretax:114,tax:6,total:120,payment:'悠遊卡',category:'停車',confidence:88,date:'2026-06-27',invoiceNo:'CD-33445566'},
+  {store:'全聯福利中心',taxId:'51246237',items:'清潔用品 飲用水',pretax:286,tax:14,total:300,payment:'現金',category:'其他',confidence:73,date:'2026-06-26',invoiceNo:'EF-55667788'},
+];
+let batchFileNames = [];
+
+function simulateBatchOCR(filenames){
+  batchFileNames = filenames;
+  const n = filenames.length;
+
+  // 每個檔案各顯示一個進度條
+  filenames.forEach((name, idx)=>{
+    const itemId = 'upload-'+Date.now()+idx+Math.random().toString(36).slice(2);
+    const ext = name.split('.').pop().toUpperCase();
+    const icon = ext==='PDF'?'📕':['HEIC','HEIF'].includes(ext)?'📷':'🖼️';
+    const list = document.getElementById('uploadList');
+    const div = document.createElement('div');
+    div.className='upload-item'; div.id=itemId;
+    div.innerHTML=`
+      <div class="upload-item-header">
+        <span class="file-icon">${icon}</span>
+        <span class="upload-item-name">${name}</span>
+        <span class="upload-item-status" id="${itemId}-status">準備中…</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="${itemId}-bar" style="width:0%"></div></div>
+      <div style="font-size:12px;color:var(--gray-400)" id="${itemId}-step">等待上傳</div>`;
+    list.prepend(div);
+
+    const baseDelay = idx * 300;
+    const steps=[
+      {pct:20,label:'上傳中…',delay:baseDelay+300},
+      {pct:55,label:'OCR 文字辨識中…',delay:baseDelay+900},
+      {pct:85,label:'AI 費用分類中…',delay:baseDelay+1500},
+      {pct:100,label:'辨識完成！',delay:baseDelay+2000},
+    ];
+    steps.forEach(s=>setTimeout(()=>{
+      const bar=document.getElementById(`${itemId}-bar`);
+      const step=document.getElementById(`${itemId}-step`);
+      const stat=document.getElementById(`${itemId}-status`);
+      if(!bar) return;
+      bar.style.width=s.pct+'%';
+      step.textContent=s.label;
+      if(s.pct===100){
+        stat.innerHTML='<span class="badge badge-green">✓ 完成</span>';
+      }
+    },s.delay));
+  });
+
+  // 全部完成後統一顯示批次確認 Modal
+  const totalDelay = (n-1)*300 + 2200;
+  setTimeout(()=>showBatchResult(filenames), totalDelay);
+}
+
+function showBatchResult(filenames){
+  // 從假資料池依序取對應數量
+  pendingMultiList = filenames.map((name, i)=>{
+    const pool = BATCH_FAKE_POOL;
+    const d = pool[i % pool.length];
+    return {...d, id:'INV'+Date.now()+Math.random().toString(36).slice(2,6), note:'', removed:false, _filename:name};
+  });
+
+  const lowConf = pendingMultiList.filter(x=>x.confidence<80).length;
+  document.getElementById('multiModalAlert').innerHTML=`
+    <div class="alert alert-info" style="margin-bottom:10px">
+      📂 已辨識 <strong>${filenames.length} 個檔案</strong>，每個檔案各辨識出 1 張發票，請逐一確認後儲存
+    </div>
+    ${lowConf>0?`<div class="alert alert-warning" style="margin-bottom:10px">⚠️ 其中 ${lowConf} 張信心度低於 80%，建議人工確認</div>`:''}`;
+
+  renderMultiList();
+  openModal('multiModal');
 }
 
 // ── 單張模式 ──
@@ -1233,7 +1316,7 @@ function renderMultiList(){
     <div class="multi-inv-card ${x.removed?'removed':''}" id="mc-${i}">
       <div class="multi-inv-card-header">
         <div>
-          <span class="multi-detect-badge">📍 第 ${i+1} 張</span>
+          <span class="multi-detect-badge">${x._filename ? '📄 '+x._filename : '📍 第 '+(i+1)+' 張'}</span>
           ${x.confidence<80?`<span class="badge badge-red" style="margin-left:4px">⚠️ ${x.confidence}% 待確認</span>`:`<span class="badge badge-green" style="margin-left:4px">${x.confidence}%</span>`}
         </div>
         <div style="display:flex;align-items:center;gap:6px">
