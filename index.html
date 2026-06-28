@@ -739,32 +739,53 @@ input[type="checkbox"]{width:15px;height:15px;cursor:pointer;accent-color:var(--
 
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsModal">
-  <div class="modal" style="max-width:480px">
+  <div class="modal" style="max-width:520px">
     <div class="modal-header">
-      <h3>⚙️ API Key 設定</h3>
+      <h3>⚙️ OCR 設定</h3>
       <button class="modal-close" onclick="closeModal('settingsModal')">✕</button>
     </div>
-    <div class="modal-body">
-      <div class="alert alert-info" style="margin-bottom:16px">
-        🤖 設定 Anthropic API Key 後，上傳照片將使用 <strong>Claude Vision</strong> 進行真實的 AI 發票辨識。<br>
-        未設定時使用示範資料（Demo 模式）。
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+
+      <!-- Google Vision Section -->
+      <div style="background:var(--blue-lighter);border:1px solid var(--blue-light);border-radius:8px;padding:14px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px">🔍 Google Cloud Vision OCR（推薦）</div>
+        <div style="font-size:12px;color:var(--gray-600);margin-bottom:10px">
+          使用 Google 專業 OCR 辨識文字，再交由 Claude 解析成結構化發票資料。辨識精度最佳。
+        </div>
+        <div class="form-group" style="margin-bottom:8px">
+          <label class="form-label">Service Account JSON</label>
+          <textarea id="googleCredInput" class="form-control" rows="4"
+            placeholder='貼上 Service Account JSON 內容&#10;{"type":"service_account","client_email":"...","private_key":"...","project_id":"..."}'
+            style="font-size:11px;font-family:monospace;resize:vertical"></textarea>
+          <div style="margin-top:5px;font-size:11px;color:var(--gray-400)">僅存於本機 localStorage，不會上傳伺服器。建議定期 rotate 金鑰。</div>
+        </div>
+        <div id="googleCredStatus" style="font-size:12px;margin-bottom:4px"></div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+
+      <!-- Claude Section -->
+      <div style="font-size:13px;font-weight:700;color:var(--gray-700);margin-bottom:10px">🤖 Claude AI（結構化必要 / 備用辨識）</div>
+      <div style="font-size:12px;color:var(--gray-600);margin-bottom:10px">
+        Google Vision 啟用時：Claude 負責將 OCR 文字轉成結構化發票資料（必填）。<br>
+        未設定 Google Vision 時：直接用 Claude Vision 辨識圖片。
       </div>
       <div class="form-group">
         <label class="form-label">Anthropic API Key</label>
         <input id="apiKeyInput" class="form-control" type="password" placeholder="sk-ant-..." autocomplete="off">
-        <div style="margin-top:5px;font-size:11px;color:var(--gray-400)">Key 僅儲存在本機 localStorage，不會上傳至任何伺服器</div>
+        <div style="margin-top:5px;font-size:11px;color:var(--gray-400)">Key 僅儲存在本機 localStorage</div>
       </div>
       <div class="form-group">
-        <label class="form-label">辨識模型</label>
+        <label class="form-label">Claude 模型（結構化/備用辨識）</label>
         <select id="modelSelect" class="form-control form-select">
           <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5（較快、較省）</option>
           <option value="claude-opus-4-8">Claude Opus 4.8（最強、較慢）</option>
         </select>
       </div>
-      <div id="apiKeyStatus" style="margin-top:8px;font-size:12px"></div>
+      <div id="apiKeyStatus" style="font-size:12px"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="clearApiKey()">🗑️ 清除 Key</button>
+      <button class="btn btn-secondary" onclick="clearAllSettings()">🗑️ 全部清除</button>
       <button class="btn btn-secondary" onclick="closeModal('settingsModal')">取消</button>
       <button class="btn btn-primary" onclick="saveApiKey()">💾 儲存設定</button>
     </div>
@@ -1130,30 +1151,140 @@ function triggerFileInput(){ document.getElementById('fileInput').click(); }
 // ==================== API KEY SETTINGS ====================
 function getApiKey(){ return localStorage.getItem('anthropic_api_key')||''; }
 function getModel(){ return localStorage.getItem('anthropic_model')||'claude-haiku-4-5-20251001'; }
+function getGoogleCreds(){ const r=localStorage.getItem('google_vision_creds'); return r?JSON.parse(r):null; }
 
 function saveApiKey(){
   const key = document.getElementById('apiKeyInput').value.trim();
   const model = document.getElementById('modelSelect').value;
-  if(!key){ toast('請輸入 API Key','warning'); return; }
-  localStorage.setItem('anthropic_api_key', key);
-  localStorage.setItem('anthropic_model', model);
+  const googleRaw = document.getElementById('googleCredInput').value.trim();
+
+  // Save Google Vision credentials if provided
+  if(googleRaw){
+    try {
+      const creds = JSON.parse(googleRaw);
+      if(!creds.client_email || !creds.private_key) throw new Error('缺少 client_email 或 private_key');
+      localStorage.setItem('google_vision_creds', JSON.stringify({
+        client_email: creds.client_email,
+        private_key: creds.private_key,
+        project_id: creds.project_id || ''
+      }));
+      _googleToken = null; // reset cached token
+      document.getElementById('googleCredStatus').innerHTML='<span style="color:var(--green)">✅ Google Vision 已設定</span>';
+    } catch(e){
+      toast('Google 憑證格式錯誤：'+e.message, 'warning'); return;
+    }
+  }
+
+  if(key){
+    localStorage.setItem('anthropic_api_key', key);
+    localStorage.setItem('anthropic_model', model);
+    document.getElementById('apiKeyStatus').innerHTML='<span style="color:var(--green)">✅ Claude API Key 已儲存</span>';
+  }
+
+  if(!googleRaw && !key){ toast('請至少填入一個憑證','warning'); return; }
+
   updateDemoModeBadge();
-  document.getElementById('apiKeyStatus').innerHTML='<span style="color:var(--green)">✅ 已儲存，下次上傳將使用真實 AI 辨識</span>';
-  setTimeout(()=>closeModal('settingsModal'), 1000);
-  toast('✅ API Key 已儲存');
+  toast('✅ 設定已儲存');
+  setTimeout(()=>closeModal('settingsModal'), 800);
 }
 
-function clearApiKey(){
+function clearAllSettings(){
   localStorage.removeItem('anthropic_api_key');
+  localStorage.removeItem('google_vision_creds');
+  _googleToken = null;
   document.getElementById('apiKeyInput').value='';
-  document.getElementById('apiKeyStatus').innerHTML='<span style="color:var(--gray-500)">已清除，將使用 Demo 模式</span>';
+  document.getElementById('googleCredInput').value='';
+  document.getElementById('apiKeyStatus').innerHTML='<span style="color:var(--gray-500)">已清除</span>';
+  document.getElementById('googleCredStatus').innerHTML='<span style="color:var(--gray-500)">已清除</span>';
   updateDemoModeBadge();
-  toast('已切換為 Demo 模式','warning');
+  toast('已清除所有設定，切換為 Demo 模式','warning');
 }
 
 function updateDemoModeBadge(){
   const badge = document.getElementById('demoModeBadge');
-  if(!getApiKey()){ badge.style.display=''; } else { badge.style.display='none'; }
+  const hasAny = getApiKey() || getGoogleCreds();
+  badge.style.display = hasAny ? 'none' : '';
+}
+
+// ==================== GOOGLE CLOUD VISION ====================
+let _googleToken = null;
+let _googleTokenExp = 0;
+
+async function getGoogleAccessToken(){
+  if(_googleToken && Date.now()/1000 < _googleTokenExp - 60) return _googleToken;
+  const creds = getGoogleCreds();
+  if(!creds) return null;
+
+  const now = Math.floor(Date.now()/1000);
+  const hdr = btoa(JSON.stringify({alg:'RS256',typ:'JWT'})).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const pld = btoa(unescape(encodeURIComponent(JSON.stringify({
+    iss: creds.client_email,
+    scope: 'https://www.googleapis.com/auth/cloud-vision',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now
+  })))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const signing = `${hdr}.${pld}`;
+
+  const pemBody = creds.private_key.replace(/-----[^-]+-----/g,'').replace(/\s/g,'');
+  const keyBytes = Uint8Array.from(atob(pemBody), c=>c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey('pkcs8', keyBytes.buffer,
+    {name:'RSASSA-PKCS1-v1_5', hash:'SHA-256'}, false, ['sign']);
+  const sigBytes = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(signing));
+  const sig = btoa(String.fromCharCode(...new Uint8Array(sigBytes))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+
+  const jwt = `${signing}.${sig}`;
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
+  });
+  const data = await res.json();
+  if(!data.access_token) throw new Error('Google 授權失敗：'+JSON.stringify(data));
+  _googleToken = data.access_token;
+  _googleTokenExp = now + (data.expires_in||3600);
+  return _googleToken;
+}
+
+async function callGoogleVisionOCR(imageBase64){
+  const token = await getGoogleAccessToken();
+  const res = await fetch('https://vision.googleapis.com/v1/images:annotate', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+    body: JSON.stringify({requests:[{image:{content:imageBase64},features:[{type:'DOCUMENT_TEXT_DETECTION'}]}]})
+  });
+  if(!res.ok){ const e=await res.json().catch(()=>{}); throw new Error('Google Vision 錯誤：'+(e?.error?.message||res.status)); }
+  const data = await res.json();
+  return data.responses?.[0]?.fullTextAnnotation?.text || '';
+}
+
+async function callClaudeStructure(ocrText){
+  const apiKey = getApiKey();
+  if(!apiKey) throw new Error('請設定 Anthropic API Key 以結構化 OCR 文字');
+  const res = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({
+      model: getModel(),
+      max_tokens: 2048,
+      messages:[{role:'user',content:
+`以下是從發票/收據 OCR 辨識出的文字，請從中提取所有發票資訊。若有多張，請全部提取。
+
+OCR 文字：
+${ocrText}
+
+以 JSON 陣列格式回傳，每張發票一個物件：
+date(YYYY-MM-DD), store(店家名稱), taxId(統一編號8位，無則空字串), invoiceNo(發票號碼如AB-12345678), items(品項描述), pretax(未稅金額數字), tax(稅額數字), total(含稅總額數字), payment(現金/信用卡/悠遊卡/LINE Pay/其他), category(加油/停車/伙食/其他), confidence(0-100整數)
+
+只回傳 JSON 陣列，不要任何說明文字。`
+      }]
+    })
+  });
+  if(!res.ok){ const e=await res.json().catch(()=>{}); throw new Error(e?.error?.message||res.status); }
+  const data = await res.json();
+  const text = data.content[0].text.trim();
+  const match = text.match(/\[[\s\S]*\]/);
+  if(!match) throw new Error('Claude 回傳格式異常');
+  return JSON.parse(match[0]);
 }
 
 
@@ -1266,8 +1397,7 @@ function processFiles(files){
   const valid = files.filter(f=>['image/jpeg','image/png','application/pdf','image/heic','image/heif'].includes(f.type)||/\.(heic|heif|jpg|jpeg|png|pdf)$/i.test(f.name));
   if(!valid.length){ toast('請上傳 JPG、PNG、PDF 或 HEIC 格式','warning'); return; }
 
-  if(getApiKey()){
-    // 真實 OCR 模式
+  if(getGoogleCreds() || getApiKey()){
     if(valid.length > 1){
       realBatchOCR(valid);
     } else {
@@ -1285,45 +1415,58 @@ function processFiles(files){
   }
 }
 
+// 統一處理 OCR 結果顯示
+function showOCRResults(results, filename){
+  if(!results || !results.length){
+    toast('AI 未能辨識出發票資料，請嘗試更清晰的照片','warning');
+    return;
+  }
+  if(results.length === 1){
+    const d = results[0];
+    pendingOCR = {...d, note:'', id:'INV'+Date.now()};
+    document.getElementById('ocrModalBody').innerHTML=`
+      <div class="alert alert-info">🤖 AI 已完成辨識「${filename}」，請確認以下資料是否正確</div>
+      ${d.confidence<80?`<div class="alert alert-warning">⚠️ AI 信心度 ${d.confidence}%，建議人工確認辨識結果</div>`:''}
+      ${renderOCRFields(pendingOCR,false)}`;
+    openModal('ocrModal');
+  } else {
+    pendingMultiList = results.map(d=>({...d, id:'INV'+Date.now()+Math.random().toString(36).slice(2,6), note:'', removed:false}));
+    const lowConf = pendingMultiList.filter(x=>x.confidence<80).length;
+    document.getElementById('multiModalAlert').innerHTML=`
+      <div class="alert alert-info" style="margin-bottom:10px">
+        🤖 AI 在「${filename}」中偵測到 <strong>${results.length} 張發票</strong>，請逐一確認或修改後儲存
+      </div>
+      ${lowConf>0?`<div class="alert alert-warning" style="margin-bottom:10px">⚠️ 其中 ${lowConf} 張信心度低於 80%，建議人工確認</div>`:''}`;
+    renderMultiList();
+    openModal('multiModal');
+  }
+}
+
 // ── 真實 OCR：單一或多張同框 ──
 async function realOCR(file){
   const itemId = addUploadItem(file.name);
   try {
-    updateUploadProgress(itemId, 20, '上傳中…');
+    updateUploadProgress(itemId, 10, '上傳中…');
     const mimeType = file.type || 'image/jpeg';
     const base64 = await fileToBase64(file);
-    updateUploadProgress(itemId, 50, 'AI 辨識中（Claude Vision）…');
-    const results = await callClaudeOCR(base64, mimeType);
-    updateUploadProgress(itemId, 100, '辨識完成！', true);
+    let results;
 
-    if(!results || !results.length){
-      toast('AI 未能辨識出發票資料，請嘗試更清晰的照片','warning');
-      return;
-    }
-    if(results.length === 1){
-      // 單張 → OCR 確認 Modal
-      const d = results[0];
-      pendingOCR = {...d, note:'', id:'INV'+Date.now()};
-      document.getElementById('ocrModalBody').innerHTML=`
-        <div class="alert alert-info">🤖 AI 已完成辨識「${file.name}」，請確認以下資料是否正確</div>
-        ${d.confidence<80?`<div class="alert alert-warning">⚠️ AI 信心度 ${d.confidence}%，建議人工確認辨識結果</div>`:''}
-        ${renderOCRFields(pendingOCR,false)}`;
-      openModal('ocrModal');
+    if(getGoogleCreds()){
+      updateUploadProgress(itemId, 35, 'Google Vision 文字辨識中…');
+      const ocrText = await callGoogleVisionOCR(base64);
+      if(!ocrText.trim()) throw new Error('Google Vision 未辨識出任何文字，請確認圖片清晰度');
+      updateUploadProgress(itemId, 70, 'Claude AI 解析發票資料中…');
+      results = await callClaudeStructure(ocrText);
     } else {
-      // 多張 → 多張確認 Modal
-      pendingMultiList = results.map(d=>({...d, id:'INV'+Date.now()+Math.random().toString(36).slice(2,6), note:'', removed:false}));
-      const lowConf = pendingMultiList.filter(x=>x.confidence<80).length;
-      document.getElementById('multiModalAlert').innerHTML=`
-        <div class="alert alert-info" style="margin-bottom:10px">
-          🤖 AI 在「${file.name}」中偵測到 <strong>${results.length} 張發票</strong>，請逐一確認或修改後儲存
-        </div>
-        ${lowConf>0?`<div class="alert alert-warning" style="margin-bottom:10px">⚠️ 其中 ${lowConf} 張信心度低於 80%，建議人工確認</div>`:''}`;
-      renderMultiList();
-      openModal('multiModal');
+      updateUploadProgress(itemId, 50, 'Claude Vision AI 辨識中…');
+      results = await callClaudeOCR(base64, mimeType);
     }
+
+    updateUploadProgress(itemId, 100, '辨識完成！', true);
+    showOCRResults(results, file.name);
   } catch(err){
     setUploadError(itemId, '辨識失敗：'+err.message);
-    toast('❌ AI 辨識失敗：'+err.message, 'warning');
+    toast('❌ 辨識失敗：'+err.message, 'warning');
   }
 }
 
@@ -1336,12 +1479,22 @@ async function realBatchOCR(files){
     const file = files[i];
     const itemId = itemIds[i];
     try {
-      updateUploadProgress(itemId, 20, '上傳中…');
+      updateUploadProgress(itemId, 10, '上傳中…');
       const mimeType = file.type || 'image/jpeg';
       const base64 = await fileToBase64(file);
-      updateUploadProgress(itemId, 60, 'AI 辨識中…');
-      const results = await callClaudeOCR(base64, mimeType);
-      updateUploadProgress(itemId, 100, `辨識完成！找到 ${results?.length||0} 張`, true);
+      let results;
+
+      if(getGoogleCreds()){
+        updateUploadProgress(itemId, 40, 'Google Vision 辨識中…');
+        const ocrText = await callGoogleVisionOCR(base64);
+        updateUploadProgress(itemId, 75, 'Claude 解析資料中…');
+        results = await callClaudeStructure(ocrText);
+      } else {
+        updateUploadProgress(itemId, 60, 'Claude Vision 辨識中…');
+        results = await callClaudeOCR(base64, mimeType);
+      }
+
+      updateUploadProgress(itemId, 100, `完成！找到 ${results?.length||0} 張`, true);
       if(results && results.length){
         results.forEach(d=>allResults.push({...d, _filename:file.name}));
       }
@@ -1805,9 +1958,16 @@ function openModal(id){
   if(id==='settingsModal'){
     document.getElementById('apiKeyInput').value = getApiKey();
     document.getElementById('modelSelect').value = getModel();
+    const gc = getGoogleCreds();
+    document.getElementById('googleCredInput').value = gc
+      ? JSON.stringify({type:'service_account',client_email:gc.client_email,private_key:'(已儲存)',project_id:gc.project_id}, null, 2)
+      : '';
+    document.getElementById('googleCredStatus').innerHTML = gc
+      ? `<span style="color:var(--green)">✅ 已設定 Google Vision（${gc.client_email}）</span>`
+      : '<span style="color:var(--gray-500)">尚未設定</span>';
     document.getElementById('apiKeyStatus').innerHTML = getApiKey()
-      ? '<span style="color:var(--green)">✅ 已設定 API Key，將使用真實 AI 辨識</span>'
-      : '<span style="color:var(--gray-500)">尚未設定，使用 Demo 模式</span>';
+      ? '<span style="color:var(--green)">✅ 已設定 Claude API Key</span>'
+      : '<span style="color:var(--gray-500)">尚未設定</span>';
   }
   document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden';
 }
