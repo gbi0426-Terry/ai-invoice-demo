@@ -1294,8 +1294,11 @@ function simulateMultiOCR(filename){
 }
 
 function showMultiOCRResult(filename){
-  // 每次產生新的 id，避免重複
-  pendingMultiList = MULTI_FAKE_DATA.map(d=>({...d, id:'INV'+Date.now()+Math.random().toString(36).slice(2,6), note:'', removed:false}));
+  // 從假資料池隨機抽 2~5 筆，模擬 AI 偵測到的張數
+  const pool = [...MULTI_FAKE_DATA];
+  const detected = 2 + Math.floor(Math.random() * 4); // 2~5
+  const shuffled = pool.sort(()=>Math.random()-.5).slice(0, detected);
+  pendingMultiList = shuffled.map(d=>({...d, id:'INV'+Date.now()+Math.random().toString(36).slice(2,6), note:'', removed:false}));
 
   const lowConf = pendingMultiList.filter(x=>x.confidence<80).length;
   document.getElementById('multiModalAlert').innerHTML=`
