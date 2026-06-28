@@ -239,6 +239,34 @@ input[type="checkbox"]{width:15px;height:15px;cursor:pointer;accent-color:var(--
 .recent-item-meta{font-size:11px;color:var(--gray-500)}
 .recent-item-amount{font-size:13px;font-weight:700;color:var(--gray-800)}
 
+/* Multi-invoice modal */
+.multi-inv-list{display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto;padding-right:4px}
+.multi-inv-card{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:12px 14px;position:relative}
+.multi-inv-card.removed{opacity:.35;pointer-events:none}
+.multi-inv-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.multi-inv-store{font-weight:700;font-size:13px;flex:1}
+.multi-inv-amount{font-weight:700;font-size:15px;color:var(--blue);margin:0 10px}
+.multi-inv-remove{background:none;border:none;color:var(--gray-400);font-size:16px;cursor:pointer;padding:2px 6px;border-radius:4px}
+.multi-inv-remove:hover{background:var(--red-light);color:var(--red)}
+.multi-inv-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.multi-inv-field{font-size:11px}
+.multi-inv-field-label{color:var(--gray-400);margin-bottom:2px}
+.multi-inv-field-value{color:var(--gray-700);font-weight:600}
+.multi-inv-field input,.multi-inv-field select{width:100%;padding:4px 8px;border:1px solid var(--gray-300);border-radius:5px;font-size:12px;background:#fff}
+.multi-inv-field input:focus,.multi-inv-field select:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
+.multi-detect-badge{display:inline-flex;align-items:center;gap:4px;background:#1e3a8a;color:#fff;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-bottom:12px}
+
+/* Mode toggle */
+.mode-toggle{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--blue-lighter);border:1px solid var(--blue-light);border-radius:8px;margin-top:14px}
+.mode-toggle label{font-size:13px;font-weight:600;color:var(--blue);cursor:pointer;flex:1}
+.mode-toggle-desc{font-size:11px;color:var(--gray-500);margin-top:2px}
+.toggle-switch{position:relative;width:38px;height:22px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--gray-300);border-radius:999px;cursor:pointer;transition:.2s}
+.toggle-slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle-switch input:checked+.toggle-slider{background:var(--blue)}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(16px)}
+
 /* Batch bar */
 .batch-bar{background:#1e40af;color:#fff;padding:10px 16px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;box-shadow:var(--shadow-md)}
 .batch-bar-left{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
@@ -398,19 +426,33 @@ input[type="checkbox"]{width:15px;height:15px;cursor:pointer;accent-color:var(--
         <div class="card" style="margin-bottom:16px">
           <div class="card-header">
             <span class="card-title">📤 上傳發票</span>
-            <span style="font-size:12px;color:var(--gray-400)">支援 JPG、PNG、PDF</span>
+            <span style="font-size:12px;color:var(--gray-400)">支援 JPG、PNG、PDF、HEIC</span>
           </div>
           <div class="card-body">
             <div class="upload-zone" id="uploadZone" onclick="triggerFileInput()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
-              <div class="upload-zone-icon">🖼️</div>
-              <div class="upload-zone-text">拖曳發票至此，或點擊上傳</div>
-              <div class="upload-zone-sub">支援多張同時上傳 · 支援 JPG、PNG、PDF、HEIC · 每張最大 10MB</div>
+              <div class="upload-zone-icon" id="uploadZoneIcon">🖼️</div>
+              <div class="upload-zone-text" id="uploadZoneText">拖曳發票至此，或點擊上傳</div>
+              <div class="upload-zone-sub" id="uploadZoneSub">支援多張同時上傳 · JPG、PNG、PDF、HEIC · 每張最大 10MB</div>
               <div class="upload-btn-group">
                 <button class="btn btn-primary" onclick="event.stopPropagation();triggerFileInput()">選擇檔案</button>
                 <button class="btn btn-secondary" onclick="event.stopPropagation();simulateUpload()">使用示範檔案</button>
               </div>
             </div>
             <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.pdf,.heic,.heif" style="display:none" onchange="handleFileSelect(event)">
+
+            <!-- 多張同框模式 toggle -->
+            <div class="mode-toggle">
+              <div style="flex:1">
+                <label for="multiModeToggle" style="font-size:13px;font-weight:600;color:var(--blue);cursor:pointer;display:block">
+                  📸 多張發票同框辨識
+                </label>
+                <div class="mode-toggle-desc">開啟後，一張照片中有多張發票時，AI 會自動逐一偵測並拆解為多筆記錄</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="multiModeToggle" onchange="updateUploadZoneUI()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
           </div>
         </div>
         <div id="uploadList"></div>
@@ -668,6 +710,27 @@ input[type="checkbox"]{width:15px;height:15px;cursor:pointer;accent-color:var(--
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('ocrModal')">捨棄</button>
       <button class="btn btn-primary" onclick="saveOCRResult()">✅ 確認儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Multi Invoice Modal -->
+<div class="modal-overlay" id="multiModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3>📸 多張發票同框辨識結果</h3>
+      <button class="modal-close" onclick="closeModal('multiModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="multiModalAlert"></div>
+      <div class="multi-inv-list" id="multiInvList"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <span style="font-size:12px;color:var(--gray-500)" id="multiSavedCount"></span>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" onclick="closeModal('multiModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveAllMulti()">✅ 全部儲存（<span id="multiSaveCount">0</span> 筆）</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1013,23 +1076,45 @@ function toggleReport(id){
 }
 
 // ==================== UPLOAD ====================
+function isMultiMode(){ return document.getElementById('multiModeToggle').checked; }
+
+function updateUploadZoneUI(){
+  const multi = isMultiMode();
+  document.getElementById('uploadZoneIcon').textContent = multi ? '📸' : '🖼️';
+  document.getElementById('uploadZoneText').textContent = multi
+    ? '拖曳多張發票同框照片，或點擊上傳'
+    : '拖曳發票至此，或點擊上傳';
+  document.getElementById('uploadZoneSub').textContent = multi
+    ? '一張照片含多張發票 · AI 自動逐一偵測拆解 · JPG、PNG、HEIC'
+    : '支援多張同時上傳 · JPG、PNG、PDF、HEIC · 每張最大 10MB';
+}
+
 function triggerFileInput(){ document.getElementById('fileInput').click(); }
-function handleFileSelect(e){ processFiles([...e.target.files]); }
+function handleFileSelect(e){ processFiles([...e.target.files]); e.target.value=''; }
 function handleDragOver(e){ e.preventDefault(); document.getElementById('uploadZone').classList.add('dragover'); }
 function handleDragLeave(e){ document.getElementById('uploadZone').classList.remove('dragover'); }
 function handleDrop(e){ e.preventDefault(); document.getElementById('uploadZone').classList.remove('dragover'); processFiles([...e.dataTransfer.files]); }
 
 function processFiles(files){
-  const valid = files.filter(f=>['image/jpeg','image/png','application/pdf','image/heic','image/heif'].includes(f.type)||/\.(heic|heif)$/i.test(f.name));
+  const valid = files.filter(f=>['image/jpeg','image/png','application/pdf','image/heic','image/heif'].includes(f.type)||/\.(heic|heif|jpg|jpeg|png|pdf)$/i.test(f.name));
   if(!valid.length){ toast('請上傳 JPG、PNG、PDF 或 HEIC 格式','warning'); return; }
-  valid.forEach(f=>simulateOCR(f.name, null));
+  if(isMultiMode()){
+    valid.forEach(f=>simulateMultiOCR(f.name));
+  } else {
+    valid.forEach(f=>simulateOCR(f.name, null));
+  }
 }
 
 function simulateUpload(){
-  const demos = ['統一發票_中油_20260626.jpg','停車費用_嘟嘟房_20260625.pdf','星巴克_收據_20260624.png'];
-  demos.forEach((name,i)=>setTimeout(()=>simulateOCR(name,null),i*800));
+  if(isMultiMode()){
+    simulateMultiOCR('多張停車發票_20260626.heic');
+  } else {
+    const demos = ['統一發票_中油_20260626.jpg','停車費用_嘟嘟房_20260625.pdf','星巴克_收據_20260624.png'];
+    demos.forEach((name,i)=>setTimeout(()=>simulateOCR(name,null),i*800));
+  }
 }
 
+// ── 單張模式 ──
 let ocrQueue = [];
 function simulateOCR(filename, customData){
   const itemId = 'upload-'+Date.now()+Math.random().toString(36).slice(2);
@@ -1057,13 +1142,165 @@ function simulateOCR(filename, customData){
     {pct:100,label:'辨識完成！',delay:2400}
   ];
   steps.forEach(s=>setTimeout(()=>{
-    document.getElementById(`${itemId}-bar`).style.width=s.pct+'%';
-    document.getElementById(`${itemId}-step`).textContent=s.label;
+    const bar=document.getElementById(`${itemId}-bar`);
+    const step=document.getElementById(`${itemId}-step`);
+    const stat=document.getElementById(`${itemId}-status`);
+    if(!bar) return;
+    bar.style.width=s.pct+'%';
+    step.textContent=s.label;
     if(s.pct===100){
-      document.getElementById(`${itemId}-status`).innerHTML='<span class="badge badge-green">✓ 完成</span>';
+      stat.innerHTML='<span class="badge badge-green">✓ 完成</span>';
       setTimeout(()=>showOCRResult(filename, customData),300);
     }
   },s.delay));
+}
+
+// ── 多張同框模式 ──
+const MULTI_FAKE_DATA = [
+  {store:'無典長春旗艦店',taxId:'88394591',items:'商品消費',pretax:333,tax:17,total:350,payment:'信用卡',category:'其他',confidence:74,date:'2026-06-22',invoiceNo:'BA-78889838'},
+  {store:'Times PARKING',taxId:'54136012',items:'停車費',pretax:190,tax:10,total:200,payment:'信用卡',category:'停車',confidence:92,date:'2026-06-26',invoiceNo:'AK-53664621'},
+  {store:'USPACE 停車',taxId:'83251406',items:'停車費 3小時',pretax:200,tax:10,total:210,payment:'悠遊卡',category:'停車',confidence:89,date:'2026-06-18',invoiceNo:'BN-48608371'},
+  {store:'城市車旅停車場',taxId:'00605709',items:'停車費',pretax:167,tax:8,total:175,payment:'信用卡',category:'停車',confidence:88,date:'2026-06-22',invoiceNo:'BG-58958385'},
+  {store:'台北車旅停車場',taxId:'22881234',items:'停車費 4小時',pretax:743,tax:37,total:780,payment:'悠遊卡',category:'停車',confidence:71,date:'2026-06-10',invoiceNo:'BK-27653614'},
+  {store:'Times PARKING',taxId:'54136012',items:'停車費',pretax:76,tax:4,total:80,payment:'悠遊卡',category:'停車',confidence:93,date:'2026-06-10',invoiceNo:'AK-52496842'},
+  {store:'新竹市政府停車場',taxId:'07022000',items:'路邊停車費',pretax:19,tax:1,total:20,payment:'現金',category:'停車',confidence:65,date:'2026-06-11',invoiceNo:'NO-70220011'},
+  {store:'喜鴻開發股份有限公司',taxId:'83560959',items:'停車費',pretax:190,tax:10,total:200,payment:'信用卡',category:'停車',confidence:87,date:'2026-06-25',invoiceNo:'BK-50085406'},
+];
+
+let pendingMultiList = [];
+
+function simulateMultiOCR(filename){
+  const itemId = 'upload-'+Date.now()+Math.random().toString(36).slice(2);
+  const ext = filename.split('.').pop().toUpperCase();
+  const icon = ['HEIC','HEIF'].includes(ext)?'📷':'🖼️';
+
+  const list = document.getElementById('uploadList');
+  const div = document.createElement('div');
+  div.className='upload-item';div.id=itemId;
+  div.innerHTML=`
+    <div class="upload-item-header">
+      <span class="file-icon">${icon}</span>
+      <span class="upload-item-name">${filename}</span>
+      <span class="upload-item-status" id="${itemId}-status">準備中…</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="${itemId}-bar" style="width:0%"></div></div>
+    <div style="font-size:12px;color:var(--gray-400)" id="${itemId}-step">等待上傳</div>`;
+  list.prepend(div);
+
+  // 多張模式多加一個「偵測張數」步驟
+  const steps=[
+    {pct:15,label:'上傳中…',delay:400},
+    {pct:35,label:'偵測畫面中的發票數量…',delay:900},
+    {pct:55,label:`發現 ${MULTI_FAKE_DATA.length} 張發票，逐一 OCR 辨識中…`,delay:1500},
+    {pct:75,label:'AI 費用分類中…',delay:2200},
+    {pct:90,label:'信心度計算中…',delay:2800},
+    {pct:100,label:`辨識完成！共找到 ${MULTI_FAKE_DATA.length} 張`,delay:3300}
+  ];
+  steps.forEach(s=>setTimeout(()=>{
+    const bar=document.getElementById(`${itemId}-bar`);
+    const step=document.getElementById(`${itemId}-step`);
+    const stat=document.getElementById(`${itemId}-status`);
+    if(!bar) return;
+    bar.style.width=s.pct+'%';
+    step.textContent=s.label;
+    if(s.pct===100){
+      stat.innerHTML=`<span class="badge badge-blue">📸 ${MULTI_FAKE_DATA.length} 張</span>`;
+      setTimeout(()=>showMultiOCRResult(filename),300);
+    }
+  },s.delay));
+}
+
+function showMultiOCRResult(filename){
+  // 每次產生新的 id，避免重複
+  pendingMultiList = MULTI_FAKE_DATA.map(d=>({...d, id:'INV'+Date.now()+Math.random().toString(36).slice(2,6), note:'', removed:false}));
+
+  const lowConf = pendingMultiList.filter(x=>x.confidence<80).length;
+  document.getElementById('multiModalAlert').innerHTML=`
+    <div class="alert alert-info" style="margin-bottom:10px">
+      🤖 AI 在「${filename}」中偵測到 <strong>${pendingMultiList.length} 張發票</strong>，請逐一確認或修改後儲存
+    </div>
+    ${lowConf>0?`<div class="alert alert-warning" style="margin-bottom:10px">⚠️ 其中 ${lowConf} 張信心度低於 80%，建議人工確認</div>`:''}`;
+
+  renderMultiList();
+  openModal('multiModal');
+}
+
+function renderMultiList(){
+  const active = pendingMultiList.filter(x=>!x.removed);
+  document.getElementById('multiSaveCount').textContent = active.length;
+  document.getElementById('multiSavedCount').textContent = `已移除 ${pendingMultiList.filter(x=>x.removed).length} 筆`;
+  document.getElementById('multiInvList').innerHTML = pendingMultiList.map((x,i)=>`
+    <div class="multi-inv-card ${x.removed?'removed':''}" id="mc-${i}">
+      <div class="multi-inv-card-header">
+        <div>
+          <span class="multi-detect-badge">📍 第 ${i+1} 張</span>
+          ${x.confidence<80?`<span class="badge badge-red" style="margin-left:4px">⚠️ ${x.confidence}% 待確認</span>`:`<span class="badge badge-green" style="margin-left:4px">${x.confidence}%</span>`}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="multi-inv-amount">$${x.total}</span>
+          <button class="multi-inv-remove" onclick="toggleMultiRemove(${i})" title="${x.removed?'恢復':'移除此張'}">
+            ${x.removed?'↩':'✕'}
+          </button>
+        </div>
+      </div>
+      <div class="multi-inv-fields">
+        <div class="multi-inv-field" style="grid-column:1/3">
+          <div class="multi-inv-field-label">店家名稱</div>
+          <input value="${x.store}" onchange="updateMultiField(${i},'store',this.value)">
+        </div>
+        <div class="multi-inv-field">
+          <div class="multi-inv-field-label">類別</div>
+          <select onchange="updateMultiField(${i},'category',this.value)">
+            ${CATEGORIES.map(c=>`<option value="${c}" ${x.category===c?'selected':''}>${CAT_ICONS[c]} ${c}</option>`).join('')}
+          </select>
+        </div>
+        <div class="multi-inv-field">
+          <div class="multi-inv-field-label">發票號碼</div>
+          <input value="${x.invoiceNo}" onchange="updateMultiField(${i},'invoiceNo',this.value)" style="font-family:monospace;font-size:11px">
+        </div>
+        <div class="multi-inv-field">
+          <div class="multi-inv-field-label">日期</div>
+          <input type="date" value="${x.date}" onchange="updateMultiField(${i},'date',this.value)">
+        </div>
+        <div class="multi-inv-field">
+          <div class="multi-inv-field-label">含稅總額</div>
+          <input type="number" value="${x.total}" onchange="updateMultiField(${i},'total',+this.value)">
+        </div>
+        <div class="multi-inv-field">
+          <div class="multi-inv-field-label">統一編號</div>
+          <input value="${x.taxId}" onchange="updateMultiField(${i},'taxId',this.value)">
+        </div>
+        <div class="multi-inv-field">
+          <div class="multi-inv-field-label">付款方式</div>
+          <input value="${x.payment}" onchange="updateMultiField(${i},'payment',this.value)">
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleMultiRemove(i){
+  pendingMultiList[i].removed = !pendingMultiList[i].removed;
+  renderMultiList();
+}
+function updateMultiField(i, key, val){
+  pendingMultiList[i][key] = val;
+  // 即時更新金額顯示
+  if(key==='total'){
+    const el = document.querySelector(`#mc-${i} .multi-inv-amount`);
+    if(el) el.textContent='$'+val;
+  }
+  const active = pendingMultiList.filter(x=>!x.removed);
+  document.getElementById('multiSaveCount').textContent = active.length;
+}
+
+function saveAllMulti(){
+  const toSave = pendingMultiList.filter(x=>!x.removed);
+  if(!toSave.length){ toast('沒有選取任何發票','warning'); return; }
+  toSave.forEach(x=>invoices.unshift(x));
+  filteredInvoices = [...invoices];
+  save(); closeModal('multiModal');
+  toast(`✅ 已新增 ${toSave.length} 張發票`);
+  pendingMultiList=[];
 }
 
 const FAKE_STORES = [
