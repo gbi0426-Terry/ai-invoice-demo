@@ -1283,6 +1283,51 @@ function fileToBase64(file){
   });
 }
 
+// 圖片預處理：縮圖 + 轉 JPEG + 修正 EXIF 旋轉（解決 HEIC/大圖失敗問題）
+function preprocessImage(file){
+  return new Promise((resolve, reject)=>{
+    const MAX_PX = 1920;
+    const QUALITY = 0.88;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if(w === 0 || h === 0){ reject(new Error('圖片尺寸為零，無法讀取')); return; }
+      // 等比縮放
+      if(w > MAX_PX || h > MAX_PX){
+        if(w >= h){ h = Math.round(h * MAX_PX / w); w = MAX_PX; }
+        else { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      // 白底（避免透明 PNG 在 JPEG 變黑）
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      // 現代瀏覽器會自動套用 EXIF orientation
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob=>{
+        if(!blob){ reject(new Error('Canvas 轉換失敗')); return; }
+        const reader = new FileReader();
+        reader.onload = ()=> resolve({
+          base64: reader.result.split(',')[1],
+          mimeType: 'image/jpeg',
+          width: w, height: h,
+          originalSize: file.size,
+          compressedSize: blob.size
+        });
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', QUALITY);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('圖片載入失敗（HEIC 需在 Safari 開啟，或先轉成 JPG）')); };
+    img.src = url;
+  });
+}
+
+function fmtSize(bytes){ return bytes < 1024*1024 ? (bytes/1024).toFixed(0)+'KB' : (bytes/1024/1024).toFixed(1)+'MB'; }
+
 async function callClaudeOCR(imageBase64, mimeType){
   const apiKey = getApiKey();
   if(!apiKey) return null;
@@ -1431,20 +1476,20 @@ function showOCRResults(results, filename){
 async function realOCR(file){
   const itemId = addUploadItem(file.name);
   try {
-    updateUploadProgress(itemId, 10, '上傳中…');
-    const mimeType = file.type || 'image/jpeg';
-    const base64 = await fileToBase64(file);
+    updateUploadProgress(itemId, 5, '圖片預處理中…');
+    const img = await preprocessImage(file);
+    const sizeInfo = `${fmtSize(file.size)} → ${fmtSize(img.compressedSize)}（${img.width}×${img.height}）`;
     let results;
 
     if(getGoogleCreds()){
-      updateUploadProgress(itemId, 35, 'Google Vision 文字辨識中…');
-      const ocrText = await callGoogleVisionOCR(base64);
+      updateUploadProgress(itemId, 30, `Google Vision 辨識中… ${sizeInfo}`);
+      const ocrText = await callGoogleVisionOCR(img.base64);
       if(!ocrText.trim()) throw new Error('Google Vision 未辨識出任何文字，請確認圖片清晰度');
       updateUploadProgress(itemId, 70, 'Claude AI 解析發票資料中…');
       results = await callClaudeStructure(ocrText);
     } else {
-      updateUploadProgress(itemId, 50, 'Claude Vision AI 辨識中…');
-      results = await callClaudeOCR(base64, mimeType);
+      updateUploadProgress(itemId, 45, `Claude Vision 辨識中… ${sizeInfo}`);
+      results = await callClaudeOCR(img.base64, img.mimeType);
     }
 
     updateUploadProgress(itemId, 100, '辨識完成！', true);
@@ -1464,19 +1509,19 @@ async function realBatchOCR(files){
     const file = files[i];
     const itemId = itemIds[i];
     try {
-      updateUploadProgress(itemId, 10, '上傳中…');
-      const mimeType = file.type || 'image/jpeg';
-      const base64 = await fileToBase64(file);
+      updateUploadProgress(itemId, 5, '圖片預處理中…');
+      const img = await preprocessImage(file);
+      const sizeInfo = `${fmtSize(file.size)} → ${fmtSize(img.compressedSize)}`;
       let results;
 
       if(getGoogleCreds()){
-        updateUploadProgress(itemId, 40, 'Google Vision 辨識中…');
-        const ocrText = await callGoogleVisionOCR(base64);
-        updateUploadProgress(itemId, 75, 'Claude 解析資料中…');
+        updateUploadProgress(itemId, 35, `Google Vision 辨識中… ${sizeInfo}`);
+        const ocrText = await callGoogleVisionOCR(img.base64);
+        updateUploadProgress(itemId, 72, 'Claude 解析資料中…');
         results = await callClaudeStructure(ocrText);
       } else {
-        updateUploadProgress(itemId, 60, 'Claude Vision 辨識中…');
-        results = await callClaudeOCR(base64, mimeType);
+        updateUploadProgress(itemId, 55, `Claude Vision 辨識中… ${sizeInfo}`);
+        results = await callClaudeOCR(img.base64, img.mimeType);
       }
 
       updateUploadProgress(itemId, 100, `完成！找到 ${results?.length||0} 張`, true);
